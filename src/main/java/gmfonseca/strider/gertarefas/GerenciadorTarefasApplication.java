@@ -1,13 +1,13 @@
-package gmfonseca.strider.gerenciadortarefas;
+package gmfonseca.strider.gertarefas;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class GerenciadortarefasApplication {
+public class GerenciadorTarefasApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(GerenciadortarefasApplication.class, args);
+		SpringApplication.run(GerenciadorTarefasApplication.class, args);
 	}
 
 }
