@@ -42,14 +42,13 @@ public class Tarefa implements Serializable {
 		
 		try {
 			
-			//TODO: tentar encontrar a imagem 
 			this.imagePath = imagePath;
 
 			concluido = true;
 			this.concluido=true;
 			
 		} catch (Exception e) {
-			// TODO: handle exception
+			e.printStackTrace();
 		}
 		
 		return concluido;

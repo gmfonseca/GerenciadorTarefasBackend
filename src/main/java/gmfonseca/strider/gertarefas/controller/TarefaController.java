@@ -1,13 +1,19 @@
 package gmfonseca.strider.gertarefas.controller;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.persistence.EntityManager;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import gmfonseca.strider.gertarefas.domain.Tarefa;
+import gmfonseca.strider.gertarefas.exceptions.AlreadyFinishedException;
+import gmfonseca.strider.gertarefas.exceptions.ImageNotFoundException;
 import gmfonseca.strider.gertarefas.exceptions.InvalidFieldsException;
+import gmfonseca.strider.gertarefas.exceptions.NotFinishedException;
 import javassist.NotFoundException;
 
 public class TarefaController {
@@ -22,35 +28,79 @@ public class TarefaController {
 	 * Listar todas as tarefas cadastradas
 	 */
 	public List<Tarefa> listAll(){
+	
+		List<Tarefa> list = entityManager.createQuery("SELECT t FROM Tarefa t", Tarefa.class).getResultList();
 		
-		return entityManager.createQuery("SELECT t FROM Tarefa t", Tarefa.class).getResultList();
+		Collections.sort(list, new Comparator<Tarefa>() {
+	        @Override
+	        public int compare(Tarefa t1, Tarefa t2) {
+	            return Boolean.compare(!t2.isConcluido(), !t1.isConcluido());
+	        }
+	    });
+		
+		return list;
 	}
 	
 	/**
-	 * Listar todas as tarefas cadastradas com status de concluido
+	 * Listar todas as tarefas cadastradas com status de concluido,
 	 * filtrado pelo valor recebido
+	 * 
+	 * @param concluido
 	 */
 	public List<Tarefa> listAllFinished(boolean concluido){
-		
-		return entityManager.createQuery("SELECT t FROM Tarefa t WHERE t.concluido = :concluido", Tarefa.class)
+	
+		List<Tarefa> list = entityManager.createQuery("SELECT t FROM Tarefa t WHERE t.concluido = :concluido", Tarefa.class)
 				.setParameter("concluido", concluido).getResultList();
+		
+		return list;
 	}
 
 	/**
 	 * Recuperar uma tarefa especifica
+	 * 
+	 * @param tarefaId
+	 * 
+	 * @throws NotFoundException
 	 */
 	public Tarefa findOne(int tarefaId) throws NotFoundException {
 		
 		Tarefa tarefa = entityManager.find(Tarefa.class, tarefaId);
 		
-		//TODO: alterar excecao
 		if(null == tarefa) throw new NotFoundException("Nenhuma tarefa encontrada!");
 		
 		return tarefa;
 	}
 
 	/**
+	 * Recuperar resolucao de tarefa especifica
+	 * 
+	 * @param tarefaId
+	 * 
+	 * @throws NotFoundException
+	 * @throws NotFinishedException
+	 * @throws ImageNotFoundException
+	 */
+	public byte[] getResolucaoTarefa(int tarefaId) throws NotFoundException, NotFinishedException, ImageNotFoundException {
+		
+		Tarefa tarefa = entityManager.find(Tarefa.class, tarefaId);
+		
+		if(null == tarefa) throw new NotFoundException("Nenhuma tarefa encontrada!");	
+		if(!tarefa.isConcluido()) throw new NotFoundException("Tarefa não concluída.");	
+		
+		byte[] bytes = ResolucaoController.downloadImage(tarefa);
+		
+		if(bytes.length == 0) throw new NotFoundException("Resolução não encontrada");
+		
+		return bytes;
+	}
+
+	/**
 	 * Criar uma nova tarefa
+	 * 
+	 * @param titulo
+	 * @param descricao
+	 * 
+	 * @throws InvalidFieldsException 
 	 */
 	public Tarefa create(String titulo, String descricao) throws InvalidFieldsException {	
 		
@@ -66,57 +116,41 @@ public class TarefaController {
 	}
 	
 	/**
-	 * Deletar uma tarefa especifica
+	 * Concluir uma tarefa específica e salvar a imagem de resolução
+	 * 
+	 * @param tarefaId
+	 * @param image
+	 * 
+	 * @throws NotFoundException
+	 * @throws AlreadyFinishedException
 	 */
-	public Tarefa concluir(int tarefaId, String imagePath) throws NotFoundException {
+	public Tarefa concluir(int tarefaId, MultipartFile image) throws NotFoundException, AlreadyFinishedException {
 		
 		Tarefa tarefa = entityManager.find(Tarefa.class, tarefaId);
 		
-		if(null == tarefa) throw new NotFoundException("Nenhuma tarefa encontrada!");
-		
-		// TODO: alterar path
-		if(!tarefa.isConcluido()) {
-			tarefa.concluir(imagePath);
+		if(null == tarefa) throw new NotFoundException("Nenhuma tarefa encontrada.");
+
+		if(tarefa.isConcluido()) throw new AlreadyFinishedException();
 			
-			entityManager.getTransaction().begin();
-			entityManager.persist(tarefa);
-			entityManager.getTransaction().commit();
-		}
+		String imagePath = ResolucaoController.uploadImage(tarefa, image);
 		
-		return tarefa;
-	}
-	
-	/**
-	 * Atualizar uma tarefa especifica
-	 */
-	public Tarefa update(int tarefaId, String titulo, String descricao) throws NotFoundException {
+		if(imagePath.equals("notfound")) throw new NotFoundException("Não foi possível salvar a imagem.");
 		
-		boolean updated=false;		
-		Tarefa tarefa = entityManager.find(Tarefa.class, tarefaId);
+		tarefa.concluir(imagePath);
 		
-		if(null == tarefa) throw new NotFoundException("Nenhuma tarefa encontrada!");
-		
-		if(!StringUtils.isBlank(titulo)) { 
-			tarefa.setTitulo(titulo);
-			updated=true;
-		}
-		
-		if(!StringUtils.isBlank(descricao)) { 
-			tarefa.setTitulo(descricao);
-			updated=true;
-		}
-		
-		if(updated) {
-			entityManager.getTransaction().begin();
-			entityManager.persist(tarefa);
-			entityManager.getTransaction().commit();
-		}
+		entityManager.getTransaction().begin();
+		entityManager.persist(tarefa);
+		entityManager.getTransaction().commit();
 		
 		return tarefa;
 	}
 	
 	/**
 	 * Deletar uma tarefa especifica
+	 * 
+	 * @param tarefaId
+	 * 
+	 * @throws NotFoundException
 	 */
 	public Tarefa delete(int tarefaId) throws NotFoundException {
 		
