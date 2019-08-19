@@ -16,4 +16,11 @@ GerenciadorTarefasBackend > src > main > resources > META-INF > persistence.xml
 17 : javax.persistence.jdbc.password
 ```
 
+**Alteração Opcional**
+```
+GerenciadorTarefasBackend > src > main > resources > application.properties
+
+1: server.port=${port:8080}
+```
+
 ### 08/2019
